@@ -1,0 +1,226 @@
+openapi: 3.0.2
+info:
+  title: FastAPI
+  version: 0.1.0
+paths:
+  /health/ping:
+    get:
+      summary: Ping Health
+      operationId: ping_health_health_ping_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Ping Health Health Ping Get
+                type: object
+                additionalProperties:
+                  type: string
+  /health/detailed:
+    get:
+      summary: Check Detailed Health
+      description: HTTP endpoint used to check the health of the application
+      operationId: check_detailed_health_health_detailed_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationMetrics'
+  /v1/replication:
+    post:
+      summary: Start Replication
+      description: |-
+        HTTP endpoint used to start the replication process for keys.
+
+        Executes functions from the usecase layer to initiate key replication.
+
+        No authentication needed at this endpoint, as it will only be called internally from
+        the K8s cluster.
+
+        Returns:
+        - ReplicationProcess: A data model representing the replication process with details about its status and progress.
+
+        Parameters:
+        - connection (AsyncConnection): An asynchronous database connection object (psycopg2).
+
+        Raises:
+        - HTTPException (status_code 500): If an unexpected error occurs during the replication process.
+      operationId: start_replication_v1_replication_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationProcess'
+  /v1/validation/credentials:
+    get:
+      summary: Validate Key
+      description: |-
+        HTTP endpoint used for credential (key + service_id) validation.
+
+        Executes functions from the usecase layer to validate the keys.
+
+        No authentication needed at this endpoint, as it will only be called internally from
+        the K8s cluster.
+
+        Returns 204 status if the credentials are valid return 401 if the credentials are not valid.
+
+        Parameters:
+        - apikey: A header parameter received by the endpoint
+        - service: A header parameter received bt the endpoint
+        - connection (AsyncConnection): An asynchronous database connection object (psycopg2).
+
+        Returns:
+        - None.
+
+        Raises:
+        - HTTPException (status_code 401): If the credentials (key + service ID) are not valid.
+      operationId: validate_key_v1_validation_credentials_get
+      parameters:
+        - required: true
+          schema:
+            title: Apikey
+            type: string
+          name: apikey
+          in: header
+        - required: true
+          schema:
+            title: Service
+            type: string
+          name: service
+          in: header
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/validation/service-in-products:
+    get:
+      summary: Validate Service In Products
+      operationId: validate_service_in_products_v1_validation_service_in_products_get
+      parameters:
+        - required: true
+          schema:
+            title: Product Names
+            type: string
+          name: product_names
+          in: query
+        - required: true
+          schema:
+            title: Service Id
+            type: string
+          name: service_id
+          in: query
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    ValidationResponse:
+      type: object
+      properties:
+        msg:
+          type: string
+    ApplicationMetrics:
+      title: ApplicationMetrics
+      required:
+        - application_status
+        - start_time
+        - database_status
+        - image
+        - cpu_utilisation
+        - memory_utilisation
+      type: object
+      properties:
+        application_status:
+          title: Application Status
+          type: string
+        start_time:
+          title: Start Time
+          type: string
+          format: date-time
+        database_status:
+          title: Database Status
+          type: string
+        image:
+          title: Image
+          type: string
+        cpu_utilisation:
+          title: Cpu Utilisation
+          type: number
+        memory_utilisation:
+          title: Memory Utilisation
+          type: number
+    HTTPValidationError:
+      title: HTTPValidationError
+      type: object
+      properties:
+        detail:
+          title: Detail
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+    ReplicationProcess:
+      title: ReplicationProcess
+      required:
+        - target_table
+      type: object
+      properties:
+        target_table:
+          title: Target Table
+          type: string
+        process_id:
+          title: Process Id
+          type: string
+          format: uuid
+        date:
+          title: Date
+          type: string
+          format: date-time
+        status:
+          title: Status
+          type: string
+          default: running
+    ValidationError:
+      title: ValidationError
+      required:
+        - loc
+        - msg
+        - type
+      type: object
+      properties:
+        loc:
+          title: Location
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+        msg:
+          title: Message
+          type: string
+        type:
+          title: Error Type
+          type: string
